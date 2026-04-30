@@ -6,13 +6,22 @@
     <title>Portal Presensi PKL SMKN 1 Pajangan</title>
     <style>
         body { font-family: sans-serif; max-width: 400px; margin: auto; padding: 20px; text-align: center; }
-        video, canvas { width: 100%; max-width: 300px; border-radius: 8px; margin-bottom: 10px; }
+        video, canvas { width: 100%; max-width: 300px; border-radius: 8px; margin-bottom: 5px; }
         input, select, button { width: 100%; padding: 10px; margin-bottom: 10px; box-sizing: border-box; }
         #canvas { display: none; }
         #info-lokasi { font-weight: bold; margin-bottom: 15px; color: blue; }
         .sukses { color: green; font-weight: bold; }
         .gagal { color: red; font-weight: bold; }
         .peringatan { color: orange; font-size: 0.9em; font-weight: bold; margin-bottom:10px; display:none; }
+        
+        /* Gaya khusus untuk tombol putar kamera agar beda dengan tombol absen */
+        #btn-kamera { 
+            background-color: #f0f0f0; 
+            border: 1px solid #ccc; 
+            color: #333; 
+            margin-bottom: 15px; 
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
@@ -22,8 +31,8 @@
     <select id="guru" required>
         <option value="">-- Pilih Guru Pembimbing --</option>
         <option value="guruA">Bapak Udin</option>
-        <option value="guruB">Ibu Sumi</option>
-        <option value="guruC">Bapak Sugiharjono</option>
+        <option value="guruB">Ibu Sumiharyati</option>
+        <option value="guruC">Bapak SUgiharjono</option>
     </select>
 
     <input type="number" id="nis" placeholder="Masukkan NIS" required>
@@ -36,9 +45,13 @@
         <option value="Izin">Izin</option>
     </select>
 
-    <div id="pesan-izin" class="peringatan">Info: Mode Sakit/Izin aktif. Arahkan kamera ke Surat Dokter / Surat Izin sebagai bukti!</div>
+    <div id="pesan-izin" class="peringatan">Info: Mode Sakit/Izin aktif. Gunakan kamera belakang untuk memotret Surat Bukti!</div>
 
     <video id="video" autoplay playsinline></video>
+    
+    <!-- TAMBAHAN: Tombol Putar Kamera -->
+    <button id="btn-kamera" type="button">🔄 Putar Kamera Depan/Belakang</button>
+
     <canvas id="canvas"></canvas>
 
     <div id="info-lokasi">Mencari lokasi GPS...</div>
@@ -52,11 +65,13 @@
         const ctx = canvas.getContext('2d');
         const infoLokasi = document.getElementById('info-lokasi');
         const btnFoto = document.getElementById('btn-foto');
+        const btnKamera = document.getElementById('btn-kamera');
         const statusPesan = document.getElementById('status-pesan');
         const menuStatus = document.getElementById('status');
         const pesanIzin = document.getElementById('pesan-izin');
         
         let kordinatSaatIni = null;
+        let pakaiKameraDepan = true; // Variabel penyimpan status kamera saat ini
 
         // 1. DATABASE URL GURU
         const daftarURLGuru = {
@@ -68,17 +83,36 @@
         menuStatus.addEventListener('change', () => {
             if(menuStatus.value === "Sakit" || menuStatus.value === "Izin") {
                 pesanIzin.style.display = "block";
-                infoLokasi.style.display = "none"; // Sembunyikan info GPS agar tidak bingung
+                infoLokasi.style.display = "none"; 
             } else {
                 pesanIzin.style.display = "none";
                 infoLokasi.style.display = "block";
             }
         });
 
-        // 2. Aktifkan Kamera
-        navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } })
-            .then(stream => { video.srcObject = stream; })
-            .catch(err => { infoLokasi.innerHTML = "<span class='gagal'>Kamera tidak diizinkan!</span>"; });
+        // 2. FUNGSI BARU: Menyalakan dan Memutar Kamera
+        function mulaiKamera() {
+            // Matikan kamera yang sedang menyala (jika ada) sebelum mengganti
+            if (video.srcObject) {
+                video.srcObject.getTracks().forEach(track => track.stop());
+            }
+
+            // Tentukan mode: "user" (depan) atau "environment" (belakang)
+            const modeKamera = pakaiKameraDepan ? "user" : "environment";
+
+            navigator.mediaDevices.getUserMedia({ video: { facingMode: modeKamera } })
+                .then(stream => { video.srcObject = stream; })
+                .catch(err => { infoLokasi.innerHTML = "<span class='gagal'>Kamera tidak diizinkan atau tidak didukung!</span>"; });
+        }
+
+        // Jalankan kamera saat halaman web pertama kali dibuka
+        mulaiKamera();
+
+        // Event Listener saat tombol "Putar Kamera" ditekan
+        btnKamera.addEventListener('click', () => {
+            pakaiKameraDepan = !pakaiKameraDepan; // Balikkan nilainya (True ke False, dst)
+            mulaiKamera(); // Nyalakan ulang kamera dengan mode baru
+        });
 
         // 3. Kunci Lokasi
         if (navigator.geolocation) {
