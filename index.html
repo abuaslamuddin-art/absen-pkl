@@ -12,26 +12,31 @@
         #info-lokasi { font-weight: bold; margin-bottom: 15px; color: blue; }
         .sukses { color: green; font-weight: bold; }
         .gagal { color: red; font-weight: bold; }
+        .peringatan { color: orange; font-size: 0.9em; font-weight: bold; margin-bottom:10px; display:none; }
     </style>
 </head>
 <body>
 
     <h2>Presensi PKL</h2>
     
-    <!-- TAMBAHAN BARU: Menu Pilih Guru Pembimbing -->
     <select id="guru" required>
         <option value="">-- Pilih Guru Pembimbing --</option>
         <option value="guruA">Bapak Udin</option>
-        <option value="guruB">Ibu Sumiharyati</option>
-        <option value="guruC">Bapak Sugiharjono (Mesin)</option>
+        <option value="guruB">Ibu Sumi</option>
+        <option value="guruC">Bapak Sugiharjono</option>
     </select>
 
     <input type="number" id="nis" placeholder="Masukkan NIS" required>
     <input type="text" id="nama" placeholder="Masukkan Nama Lengkap" required>
+    
     <select id="status">
         <option value="Datang">Datang</option>
         <option value="Pulang">Pulang</option>
+        <option value="Sakit">Sakit</option>
+        <option value="Izin">Izin</option>
     </select>
+
+    <div id="pesan-izin" class="peringatan">Info: Mode Sakit/Izin aktif. Arahkan kamera ke Surat Dokter / Surat Izin sebagai bukti!</div>
 
     <video id="video" autoplay playsinline></video>
     <canvas id="canvas"></canvas>
@@ -48,15 +53,27 @@
         const infoLokasi = document.getElementById('info-lokasi');
         const btnFoto = document.getElementById('btn-foto');
         const statusPesan = document.getElementById('status-pesan');
+        const menuStatus = document.getElementById('status');
+        const pesanIzin = document.getElementById('pesan-izin');
         
         let kordinatSaatIni = null;
 
-        // 1. DATABASE URL GURU (Ganti dengan URL yang didapat dari masing-masing guru)
+        // 1. DATABASE URL GURU
         const daftarURLGuru = {
             "guruA": "https://script.google.com/macros/s/AKfycbyGrr3BtWhE4bDELj3V6jrmNpV2gWX79YZepdpc4262lR5FrrFns5Rrb-3HWY69_FKbxg/exec",
-            "guruB": "https://script.google.com/macros/s/URL_MILIK_IBU_BUDI_DISINI/exec",
-            "guruC": "https://script.google.com/macros/s/URL_MILIK_PAK_SANTOSO_DISINI/exec"
+            "guruB": "https://script.google.com/macros/s/URL_MILIK_IBU_BUDI_DISINI/exec"
         };
+
+        // Event Listener untuk memunculkan pesan jika memilih Sakit/Izin
+        menuStatus.addEventListener('change', () => {
+            if(menuStatus.value === "Sakit" || menuStatus.value === "Izin") {
+                pesanIzin.style.display = "block";
+                infoLokasi.style.display = "none"; // Sembunyikan info GPS agar tidak bingung
+            } else {
+                pesanIzin.style.display = "none";
+                infoLokasi.style.display = "block";
+            }
+        });
 
         // 2. Aktifkan Kamera
         navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } })
@@ -81,12 +98,12 @@
             const guruDipilih = document.getElementById('guru').value;
             const nis = document.getElementById('nis').value;
             const nama = document.getElementById('nama').value;
-            const status = document.getElementById('status').value;
+            const status = menuStatus.value;
 
             if(!guruDipilih) { alert("Silakan pilih Guru Pembimbing terlebih dahulu!"); return; }
             if(!nis || !nama) { alert("NIS dan Nama harus diisi!"); return; }
 
-            statusPesan.innerHTML = "<span style='color:blue;'>Memeriksa lokasi dan mengirim data...</span>";
+            statusPesan.innerHTML = "<span style='color:blue;'>Memproses data...</span>";
             btnFoto.disabled = true;
 
             canvas.width = video.videoWidth;
@@ -94,7 +111,6 @@
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
             const fotoBase64 = canvas.toDataURL('image/jpeg', 0.8);
 
-            // SISTEM OTOMATIS MENGARAHKAN DATA KE URL GURU YANG DIPILIH
             const scriptURL = daftarURLGuru[guruDipilih];
 
             const payload = {
