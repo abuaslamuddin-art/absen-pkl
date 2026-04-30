@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portal Presensi PKL SMKN 1 Pajangan</title>
+    <style>
+        body { font-family: sans-serif; max-width: 400px; margin: auto; padding: 20px; text-align: center; }
+        video, canvas { width: 100%; max-width: 300px; border-radius: 8px; margin-bottom: 10px; }
+        input, select, button { width: 100%; padding: 10px; margin-bottom: 10px; box-sizing: border-box; }
+        #canvas { display: none; }
+        #info-lokasi { font-weight: bold; margin-bottom: 15px; color: blue; }
+        .sukses { color: green; font-weight: bold; }
+        .gagal { color: red; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <h2>Presensi PKL</h2>
+    
+    <!-- TAMBAHAN BARU: Menu Pilih Guru Pembimbing -->
+    <select id="guru" required>
+        <option value="">-- Pilih Guru Pembimbing --</option>
+        <option value="guruA">Bapak [Nama Anda] (DPIB)</option>
+        <option value="guruB">Ibu Budi (TKJ)</option>
+        <option value="guruC">Bapak Santoso (Mesin)</option>
+    </select>
+
+    <input type="number" id="nis" placeholder="Masukkan NIS" required>
+    <input type="text" id="nama" placeholder="Masukkan Nama Lengkap" required>
+    <select id="status">
+        <option value="Datang">Datang</option>
+        <option value="Pulang">Pulang</option>
+    </select>
+
+    <video id="video" autoplay playsinline></video>
+    <canvas id="canvas"></canvas>
+
+    <div id="info-lokasi">Mencari lokasi GPS...</div>
+
+    <button id="btn-foto" disabled>Ambil Foto & Kirim</button>
+    <p id="status-pesan"></p>
+
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const infoLokasi = document.getElementById('info-lokasi');
+        const btnFoto = document.getElementById('btn-foto');
+        const statusPesan = document.getElementById('status-pesan');
+        
+        let kordinatSaatIni = null;
+
+        // 1. DATABASE URL GURU (Ganti dengan URL yang didapat dari masing-masing guru)
+        const daftarURLGuru = {
+            "guruA": "https://script.google.com/macros/s/AKfycbyb-wKq4OKhYbDEc18x8PEpX_ely9YJtGX-Xtlfr-HsqH95wGi6gLiqKlQztYTdF833/exec",
+            "guruB": "https://script.google.com/macros/s/URL_MILIK_IBU_BUDI_DISINI/exec",
+            "guruC": "https://script.google.com/macros/s/URL_MILIK_PAK_SANTOSO_DISINI/exec"
+        };
+
+        // 2. Aktifkan Kamera
+        navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } })
+            .then(stream => { video.srcObject = stream; })
+            .catch(err => { infoLokasi.innerHTML = "<span class='gagal'>Kamera tidak diizinkan!</span>"; });
+
+        // 3. Kunci Lokasi
+        if (navigator.geolocation) {
+            navigator.geolocation.watchPosition(
+                (position) => {
+                    kordinatSaatIni = `${position.coords.latitude}, ${position.coords.longitude}`;
+                    infoLokasi.innerText = "Lokasi ditemukan! Siap presensi.";
+                    btnFoto.disabled = false;
+                },
+                (error) => { infoLokasi.innerHTML = "<span class='gagal'>Gagal mendapatkan lokasi. Aktifkan GPS HP!</span>"; btnFoto.disabled = true; },
+                { enableHighAccuracy: true }
+            );
+        }
+
+        // 4. Kirim Data
+        btnFoto.addEventListener('click', () => {
+            const guruDipilih = document.getElementById('guru').value;
+            const nis = document.getElementById('nis').value;
+            const nama = document.getElementById('nama').value;
+            const status = document.getElementById('status').value;
+
+            if(!guruDipilih) { alert("Silakan pilih Guru Pembimbing terlebih dahulu!"); return; }
+            if(!nis || !nama) { alert("NIS dan Nama harus diisi!"); return; }
+
+            statusPesan.innerHTML = "<span style='color:blue;'>Memeriksa lokasi dan mengirim data...</span>";
+            btnFoto.disabled = true;
+
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const fotoBase64 = canvas.toDataURL('image/jpeg', 0.8);
+
+            // SISTEM OTOMATIS MENGARAHKAN DATA KE URL GURU YANG DIPILIH
+            const scriptURL = daftarURLGuru[guruDipilih];
+
+            const payload = {
+                nis: nis,
+                nama: nama,
+                status: status,
+                lokasi: kordinatSaatIni,
+                foto: fotoBase64
+            };
+
+            fetch(scriptURL, {
+                method: 'POST',
+                body: JSON.stringify(payload),
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if(data.result === "success") {
+                    statusPesan.innerHTML = "<span class='sukses'>Presensi Berhasil Diterima!</span>";
+                } else {
+                    statusPesan.innerHTML = `<span class='gagal'>${data.message}</span>`;
+                }
+                btnFoto.disabled = false;
+            })
+            .catch(error => {
+                statusPesan.innerHTML = "<span class='gagal'>Terjadi kesalahan koneksi internet.</span>";
+                btnFoto.disabled = false;
+            });
+        });
+    </script>
+</body>
+</html>
