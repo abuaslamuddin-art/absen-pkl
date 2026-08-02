@@ -171,6 +171,18 @@
             .then(data => {
                 if(data.result === "success") {
                     statusPesan.innerHTML = "<span class='sukses'>Presensi Berhasil Diterima!</span>";
+                    
+                    // TAMBAHAN: Pop up peringatan sebelum menutup aplikasi
+                    alert("Presensi Berhasil Diterima! Aplikasi akan otomatis ditutup.");
+                    
+                    // Menutup window/aplikasi
+                    window.close();
+                    
+                    // Fallback jika browser standar menolak window.close()
+                    setTimeout(() => {
+                        window.location.href = "about:blank";
+                    }, 500);
+
                 } else {
                     statusPesan.innerHTML = `<span class='gagal'>${data.message}</span>`;
                 }
